@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScanLink Studio — Shortlink</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#0f47d3;--bg:#f4f6fc}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:#111;min-height:100vh}
+header{background:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.05)}
+.brand{font-weight:700;font-size:22px;color:var(--accent)}
+nav a{margin-left:12px;text-decoration:none;color:#222;font-weight:600}
+.container{max-width:900px;margin:26px auto;padding:18px}
+.card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,0.06)}
+.input-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+input,select{padding:10px;border-radius:8px;border:1px solid #ddd}
+.btn{padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(90deg,var(--accent),#6a00ff);color:#fff;font-weight:700;cursor:pointer}
+.list{margin-top:14px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #f0f0f0}
+.small{font-size:13px;color:#666}
+.copy{background:#eef2ff;border:1px solid #cfe0ff;color:var(--accent);padding:6px 8px;border-radius:8px;cursor:pointer}
+.footer{margin-top:30px;text-align:center;padding:18px;background:#fff}
+@media(max-width:640px){.input-row{flex-direction:column}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ScanLink Studio</div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="generate.html">Generate</a>
+    <a href="history.html">History</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2 style="color:var(--accent)">Create Shortlink (Offline)</h2>
+    <p class="small">Shortlinks are stored locally in your browser. Export or copy to share.</p>
+
+    <div class="input-row">
+      <input id="orig" style="flex:1" placeholder="https://example.com/very/long/link">
+      <input id="slug" placeholder="optional: custom slug (a-z0-9)">
+      <button id="create" class="btn">Create</button>
+    </div>
+
+    <div style="margin-top:10px" class="small">Example short path: <code>yourhost/s/abc123</code></div>
+
+    <div class="list" id="linksArea"></div>
+
+    <div style="margin-top:12px">
+      <button id="exportBtn" class="btn" style="background:#10b981">Export JSON</button>
+      <button id="importBtn" class="btn" style="background:#f59e0b">Import JSON</button>
+      <input id="importFile" type="file" accept="application/json" style="display:none" />
+    </div>
+  </div>
+</div>
+
+<div class="footer">© <span id="y"></span> ScanLink Studio</div>
+
+<script>
+document.getElementById('y').textContent = new Date().getFullYear();
+const base = (location.origin + location.pathname).replace(/\/[^\/]*$/,'/'); // folder base
+function load(){
+  const data = JSON.parse(localStorage.getItem('sl_links')||'{}');
+  const area = document.getElementById('linksArea'); area.innerHTML='';
+  const keys = Object.keys(data).sort((a,b)=>data[b].ts - data[a].ts);
+  if(keys.length===0){ area.innerHTML = '<div class="small" style="padding:10px;color:#666">No shortlinks yet.</div>'; return;}
+  keys.forEach(k=>{
+    const d = data[k];
+    const div = document.createElement('div'); div.className='item';
+    div.innerHTML = `<div style="max-width:70%"><b>${k}</b> → <a href="${d.url}" target="_blank">${d.url}</a><div class="small">${new Date(d.ts).toLocaleString()}</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="copy" data-k="${k}">Copy</button>
+        <button class="copy" data-del="${k}" style="background:#ffe6e6;border:1px solid #ffc7c7;color:#c02424">Delete</button>
+      </div>`;
+    area.appendChild(div);
+  });
+  area.querySelectorAll('[data-k]').forEach(b=>b.addEventListener('click', e=>{
+    const k = e.target.dataset.k;
+    const url = base + 's/' + k;
+    navigator.clipboard.writeText(url).then(()=> alert('Copied: '+url));
+  }));
+  area.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', e=>{
+    const k = e.target.dataset.del;
+    if(!confirm('Delete '+k+' ?')) return;
+    const d = JSON.parse(localStorage.getItem('sl_links')||'{}'); delete d[k]; localStorage.setItem('sl_links',JSON.stringify(d)); load();
+  }));
+}
+
+document.getElementById('create').addEventListener('click', ()=>{
+  const url = document.getElementById('orig').value.trim();
+  if(!url){ alert('Enter URL'); return; }
+  let slug = (document.getElementById('slug').value||'').trim();
+  const store = JSON.parse(localStorage.getItem('sl_links')||'{}');
+  if(!slug) slug = Math.random().toString(36).slice(2,8);
+  if(!/^[a-z0-9\-]+$/.test(slug)){ alert('Slug may contain only a-z,0-9 and -'); return;}
+  if(store[slug]){ alert('Slug exists — choose another'); return; }
+  store[slug] = {url, ts: Date.now()};
+  localStorage.setItem('sl_links', JSON.stringify(store));
+  document.getElementById('orig').value=''; document.getElementById('slug').value='';
+  load();
+});
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const data = localStorage.getItem('sl_links') || '{}';
+  const blob = new Blob([data], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sl_links.json'; a.click();
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader(); r.onload = ()=> {
+    try{
+      const parsed = JSON.parse(r.result);
+      localStorage.setItem('sl_links', JSON.stringify(parsed));
+      alert('Imported'); load();
+    }catch(err){ alert('Invalid JSON'); }
+  }; r.readAsText(f);
+});
+
+load();
+</script>
+</body>
+</html>

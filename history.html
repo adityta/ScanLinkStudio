@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScanLink Studio — History</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#0f47d3;--bg:#f4f6fc}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:#111;min-height:100vh}
+header{background:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.05)}
+.brand{font-weight:700;font-size:22px;color:var(--accent)}
+nav a{margin-left:12px;text-decoration:none;color:#222;font-weight:600}
+.container{max-width:900px;margin:26px auto;padding:18px}
+.card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,0.06)}
+.entry{padding:12px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center}
+.small{font-size:13px;color:#666}
+.btn{padding:8px 12px;border-radius:8px;border:none;background:#ef4444;color:#fff;cursor:pointer}
+.footer{margin-top:30px;text-align:center;padding:18px;background:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ScanLink Studio</div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="generate.html">Generate</a>
+    <a href="shortlink.html">Shortlink</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2 style="color:var(--accent)">History</h2>
+    <p class="small">Recent generated items (QR text, shortlinks, etc.). Stored locally.</p>
+
+    <div style="margin-top:12px">
+      <button id="clearHist" class="btn">Clear History</button>
+    </div>
+
+    <div id="listArea" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<div class="footer">© <span id="y"></span> ScanLink Studio</div>
+
+<script>
+document.getElementById('y').textContent = new Date().getFullYear();
+
+function render(){
+  const list = JSON.parse(localStorage.getItem('sl_history')||'[]');
+  const area = document.getElementById('listArea'); area.innerHTML='';
+  if(list.length===0){ area.innerHTML = '<div class="small" style="padding:12px;color:#666">No history yet.</div>'; return;}
+  list.forEach((it, idx)=>{
+    const d = new Date(it.ts||Date.now());
+    const el = document.createElement('div'); el.className='entry';
+    el.innerHTML = `<div style="max-width:72%"><b>${escapeHtml(it.text)}</b><div class="small">${d.toLocaleString()}</div></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button data-open="${idx}" class="btn" style="background:#0f47d3">Open</button>
+        <button data-del="${idx}" class="btn" style="background:#f59e0b">Delete</button>
+      </div>`;
+    area.appendChild(el);
+  });
+
+  area.querySelectorAll('[data-open]').forEach(b=> b.addEventListener('click', e=>{
+    const i = parseInt(e.target.dataset.open,10);
+    const list = JSON.parse(localStorage.getItem('sl_history')||'[]');
+    if(list[i]) location.href = 'generate.html?prefill='+encodeURIComponent(list[i].text);
+  }));
+  area.querySelectorAll('[data-del]').forEach(b=> b.addEventListener('click', e=>{
+    const i = parseInt(e.target.dataset.del,10);
+    const l = JSON.parse(localStorage.getItem('sl_history')||'[]'); l.splice(i,1); localStorage.setItem('sl_history',JSON.stringify(l)); render();
+  }));
+}
+
+document.getElementById('clearHist').addEventListener('click', ()=>{ if(confirm('Clear all history?')){ localStorage.removeItem('sl_history'); render(); } });
+
+function escapeHtml(s){ return (s+'').replace(/[&<>]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[ch])); }
+render();
+</script>
+</body>
+</html>

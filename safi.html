@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScanLink Studio — Safi (Shortlink Manager)</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--accent:#0f47d3;--bg:#f4f6fc}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:#111;min-height:100vh}
+header{background:#fff;padding:14px 22px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.05)}
+.brand{font-weight:700;font-size:22px;color:var(--accent)}
+nav a{margin-left:12px;text-decoration:none;color:#222;font-weight:600}
+.container{max-width:900px;margin:26px auto;padding:18px}
+.card{background:#fff;padding:18px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,0.06)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input{padding:10px;border-radius:8px;border:1px solid #ddd}
+.btn{padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(90deg,var(--accent),#6a00ff);color:#fff;cursor:pointer}
+.table{margin-top:12px;border-top:1px solid #f0f0f0}
+.tr{display:flex;justify-content:space-between;padding:12px;border-bottom:1px solid #f6f6f6}
+.small{font-size:13px;color:#666}
+.footer{margin-top:30px;text-align:center;padding:18px;background:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ScanLink Studio</div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="shortlink.html">Shortlink</a>
+    <a href="history.html">History</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="card">
+    <h2 style="color:var(--accent)">Safi — Shortlink Manager</h2>
+    <p class="small">View, export and test your locally stored shortlinks.</p>
+
+    <div class="row" style="margin-top:10px">
+      <button id="refresh" class="btn">Refresh List</button>
+      <button id="export" class="btn" style="background:#10b981">Export CSV</button>
+      <button id="preview" class="btn" style="background:#f59e0b">Preview Redirect</button>
+    </div>
+
+    <div class="table" id="listArea"></div>
+  </div>
+</div>
+
+<div class="footer">© <span id="y"></span> ScanLink Studio</div>
+
+<script>
+document.getElementById('y').textContent = new Date().getFullYear();
+const base = (location.origin + location.pathname).replace(/\/[^\/]*$/,'/');
+
+function render(){
+  const data = JSON.parse(localStorage.getItem('sl_links')||'{}');
+  const area = document.getElementById('listArea'); area.innerHTML='';
+  const keys = Object.keys(data);
+  if(keys.length===0){ area.innerHTML = '<div class="small" style="padding:12px;color:#666">No shortlinks.</div>'; return; }
+  keys.sort((a,b)=>data[b].ts - data[a].ts);
+  keys.forEach(k=>{
+    const d = data[k];
+    const div = document.createElement('div'); div.className='tr';
+    div.innerHTML = `<div style="max-width:60%"><b>${k}</b> → <a href="${d.url}" target="_blank">${d.url}</a><div class="small">${new Date(d.ts).toLocaleString()}</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" data-copy="${k}" style="background:#eef2ff;color:var(--accent)">Copy</button>
+        <button class="btn" data-delete="${k}" style="background:#ffe6e6;color:#c02424">Delete</button>
+      </div>`;
+    area.appendChild(div);
+  });
+
+  area.querySelectorAll('[data-copy]').forEach(b=>b.addEventListener('click', e=>{
+    const k = e.target.dataset.copy;
+    const url = base + 's/' + k;
+    navigator.clipboard.writeText(url).then(()=> alert('Copied: '+url));
+  }));
+  area.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click', e=>{
+    const k = e.target.dataset.delete; if(!confirm('Delete '+k+'?')) return;
+    const d = JSON.parse(localStorage.getItem('sl_links')||'{}'); delete d[k]; localStorage.setItem('sl_links',JSON.stringify(d)); render();
+  }));
+}
+
+document.getElementById('refresh').addEventListener('click', render);
+
+document.getElementById('export').addEventListener('click', ()=>{
+  const data = JSON.parse(localStorage.getItem('sl_links')||'{}');
+  const rows = [['slug','url','ts']];
+  Object.keys(data).forEach(k=> rows.push([k, data[k].url, data[k].ts]));
+  const csv = rows.map(r=> r.map(v=> `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'shortlinks.csv'; a.click();
+});
+
+document.getElementById('preview').addEventListener('click', ()=>{
+  const k = prompt('Enter slug to preview (e.g. abc123):');
+  if(!k) return;
+  const store = JSON.parse(localStorage.getItem('sl_links')||'{}');
+  if(!store[k]){ alert('Not found'); return; }
+  if(confirm('Open target URL in new tab?')) window.open(store[k].url,'_blank');
+});
+
+render();
+</script>
+</body>
+</html>

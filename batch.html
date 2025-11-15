@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ScanLink Studio — Batch QR</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+:root{--accent:#0f47d3;--bg:#f4f6fc}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif}
+body{background:var(--bg);color:#111;min-height:100vh}
+header{background:#fff;padding:14px 22px;display:flex;justify-content:space-between;
+align-items:center;box-shadow:0 4px 20px rgba(0,0,0,0.05)}
+.brand{font-weight:700;font-size:22px;color:var(--accent)}
+nav a{margin-left:12px;text-decoration:none;color:#222;font-weight:600}
+.card{max-width:900px;margin:22px auto;background:#fff;padding:20px;border-radius:12px;
+box-shadow:0 8px 22px rgba(0,0,0,0.06)}
+textarea{width:100%;height:160px;padding:12px;border-radius:12px;border:1px solid #ddd;
+font-size:15px}
+.btn{padding:10px 16px;border:none;border-radius:10px;background:#0f47d3;color:#fff;
+font-weight:700;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px;margin-top:18px}
+.qrBox{background:#fafafa;padding:10px;border-radius:8px;text-align:center;
+border:1px solid #eee}
+footer{margin-top:40px;padding:18px;text-align:center;background:#fff}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ScanLink Studio</div>
+  <nav>
+    <a href="index.html">Home</a>
+    <a href="generate.html">QR</a>
+    <a href="scan.html">Scan</a>
+  </nav>
+</header>
+
+<div class="card">
+  <h2 style="color:var(--accent)">Batch QR Generator</h2>
+  <p>हर लाइन में एक URL डालो ↓</p>
+
+  <textarea id="urls" placeholder="https://example.com
+https://test.com"></textarea>
+
+  <div style="margin-top:14px;display:flex;gap:10px">
+    <button class="btn" onclick="generateAll()">Generate</button>
+    <button class="btn" style="background:#10b981" onclick="downloadAll()">Download All</button>
+  </div>
+
+  <div id="out" class="grid"></div>
+</div>
+
+<footer>© <span id="y"></span> ScanLink Studio</footer>
+
+<script>
+document.getElementById('y').textContent = new Date().getFullYear();
+
+let canvases = [];
+
+function generateAll(){
+  let text = document.getElementById("urls").value.trim();
+  if(!text){ alert("Enter URLs"); return; }
+  
+  let lines = text.split("\n").filter(x=>x.trim()!="");
+  let out = document.getElementById("out");
+  out.innerHTML="";
+  canvases=[];
+
+  lines.forEach((url,i)=>{
+    const size=200;
+    const canvas=document.createElement("canvas");
+    canvas.width=size; canvas.height=size;
+    const ctx=canvas.getContext("2d");
+
+    const img=new Image();
+    img.crossOrigin="anonymous";
+    img.src=`https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encodeURIComponent(url)}`;
+
+    img.onload=()=>{
+      ctx.drawImage(img,0,0,size,size);
+    };
+
+    canvases.push({name:`qr_${i+1}.png`,canvas});
+
+    let box=document.createElement("div");
+    box.className="qrBox";
+    box.innerHTML=`<div>${url}</div>`;
+    box.appendChild(canvas);
+    out.appendChild(box);
+  });
+}
+
+async function downloadAll(){
+  if(canvases.length==0){ alert("Generate first");return;}
+
+  const zip = new JSZip();
+  for(let c of canvases){
+    let data = c.canvas.toDataURL().split(",")[1];
+    zip.file(c.name, data, {base64:true});
+  }
+  const blob = await zip.generateAsync({type:"blob"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="batch_qr.zip";
+  a.click();
+}
+</script>
+
+<!-- JSZip CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+
+</body>
+</html>

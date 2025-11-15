@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ScanLink Studio — QR Generator</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{background:#f4f6fc;font-family:'Poppins';padding-bottom:40px;color:#111}
+header{
+  background:#fff;padding:14px 22px;
+  display:flex;justify-content:space-between;align-items:center;
+  box-shadow:0 4px 20px rgba(0,0,0,0.05)
+}
+.brand{font-size:22px;font-weight:700;color:#0f47d3}
+nav a{margin-left:14px;text-decoration:none;color:#111;font-weight:600}
+
+.card{
+  max-width:700px;margin:30px auto;background:#fff;padding:20px;border-radius:12px;
+  box-shadow:0 8px 22px rgba(0,0,0,0.06)
+}
+
+input,select{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:1px solid #ccc}
+
+.btn{
+  padding:10px 16px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(90deg,#0f47d3,#6a00ff);
+  color:#fff;font-weight:700;cursor:pointer;
+}
+
+#qrBox{
+  width:300px;height:300px;
+  margin-top:16px;background:#fafafa;
+  border:1px dashed #bbb;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+
+#previewImg{
+  width:100%;height:100%;object-fit:contain;display:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="brand">ScanLink Studio</div>
+  <nav>
+    <a href="index.html">Home</a>
+  </nav>
+</header>
+
+<div class="card">
+  <h2 style="color:#0f47d3">QR Generator</h2>
+
+  <label>Text / URL</label>
+  <input id="text">
+
+  <label>Size</label>
+  <select id="size">
+    <option>200</option>
+    <option selected>300</option>
+    <option>400</option>
+    <option>500</option>
+  </select>
+
+  <label>Foreground Color</label>
+  <input id="fg" type="color" value="#000000">
+
+  <label>Background Color</label>
+  <input id="bg" type="color" value="#ffffff">
+
+  <label>Logo Upload</label>
+  <input id="logoFile" type="file" accept="image/*">
+
+  <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+    <button id="genBtn" class="btn">Generate</button>
+    <button id="downloadBtn" class="btn" style="background:#10b981">Download</button>
+    <button id="clearBtn" class="btn" style="background:#ef4444">Clear</button>
+  </div>
+
+  <div id="qrBox">
+    <img id="previewImg">
+  </div>
+</div>
+
+<script>
+let finalCanvas = null;
+let logoImg = null;
+
+// LOAD LOGO
+document.getElementById("logoFile").addEventListener("change", e=>{
+  let file = e.target.files[0];
+  if(!file){ logoImg=null; return; }
+
+  let read = new FileReader();
+  read.onload = ev=>{
+    let img = new Image();
+    img.onload = ()=> logoImg = img;
+    img.src = ev.target.result;
+  };
+  read.readAsDataURL(file);
+});
+
+// GENERATE
+document.getElementById("genBtn").addEventListener("click", generateQR);
+
+function generateQR(){
+  let text = document.getElementById("text").value.trim();
+  if(!text){ alert("Enter text or URL"); return; }
+
+  let size = parseInt(document.getElementById("size").value);
+  let fg = hex(document.getElementById("fg").value);
+  let bg = hex(document.getElementById("bg").value);
+
+  let canvas = document.createElement("canvas");
+  canvas.width=size; canvas.height=size;
+  let ctx = canvas.getContext("2d");
+
+  ctx.fillStyle=`rgb(${bg.r},${bg.g},${bg.b})`;
+  ctx.fillRect(0,0,size,size);
+
+  let qr = new Image();
+  qr.crossOrigin="anonymous";
+  qr.src=`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
+
+  qr.onload=()=>{
+
+    ctx.drawImage(qr,0,0,size,size);
+
+    let imgData = ctx.getImageData(0,0,size,size);
+    let d = imgData.data;
+
+    for(let i=0;i<d.length;i+=4){
+      if(d[i]<120){
+        d[i]=fg.r; d[i+1]=fg.g; d[i+2]=fg.b;
+      }else{
+        d[i]=bg.r; d[i+1]=bg.g; d[i+2]=bg.b;
+      }
+    }
+
+    ctx.putImageData(imgData,0,0);
+
+    if(logoImg){
+      let w = size*0.25;
+      let x=(size-w)/2, y=(size-w)/2;
+
+      ctx.fillStyle="white";
+      ctx.fillRect(x-10,y-10,w+20,w+20);
+
+      ctx.drawImage(logoImg,x,y,w,w);
+    }
+
+    finalCanvas = canvas;
+
+    let img = document.getElementById("previewImg");
+    img.src = canvas.toDataURL("image/png");
+    img.style.display="block";
+  };
+}
+
+// DOWNLOAD
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
+  if(!finalCanvas) return alert("Generate QR first");
+  let a = document.createElement("a");
+  a.href = finalCanvas.toDataURL("image/png");
+  a.download="qr.png";
+  a.click();
+});
+
+// CLEAR
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  finalCanvas=null; logoImg=null;
+  document.getElementById("previewImg").style.display="none";
+  document.getElementById("text").value="";
+});
+
+function hex(h){
+  h=h.replace("#","");
+  if(h.length===3) h=h.split("").map(c=>c+c).join("");
+  let n=parseInt(h,16);
+  return {r:(n>>16)&255, g:(n>>8)&255, b:n&255};
+}
+</script>
+
+</body>
+</html>
